@@ -1,5 +1,9 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
+import siteLayout from "../data/site-layout.json";
+import { cloneContacts } from "../lib/site-content";
+
+const contacts = cloneContacts(siteLayout.contacts);
 ---
 
 <BaseLayout title="联系" headerMode="solid">
@@ -7,16 +11,29 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     <p class="eyebrow" data-site-edit="contact-page-eyebrow">Contact / Open channel</p>
     <h1 data-site-edit="contact-page-title">Contact</h1>
     <div class="page-intro__bottom">
-      <strong data-site-edit="contact-page-count">One open channel</strong>
+      <strong data-site-collection-count="contacts">{contacts.length} open {contacts.length === 1 ? "channel" : "channels"}</strong>
       <span data-site-edit="contact-page-description">如果你想交流项目、文章或新的想法，目前可以通过 GitHub 找到我。</span>
     </div>
   </section>
 
-  <section class="contact-links" aria-label="联系方式">
-    <a class="contact-link" href="https://github.com/spacexdavi" target="_blank" rel="noreferrer">
-      <span data-site-edit="contact-github-index">01</span>
-      <strong data-site-edit="contact-github-title">GitHub</strong>
-      <span data-site-edit="contact-github-handle">@spacexdavi ↗</span>
-    </a>
+  <section class="contact-links" aria-label="联系方式" data-site-collection="contacts">
+    {
+      contacts.map((contact, index) => {
+        const Row = contact.url ? "a" : "div";
+        return (
+          <Row
+            class="contact-link"
+            href={contact.url || undefined}
+            target={/^https?:\/\//.test(contact.url) ? "_blank" : undefined}
+            rel={/^https?:\/\//.test(contact.url) ? "noreferrer" : undefined}
+            data-site-contact-id={contact.id}
+          >
+            <span data-contact-index>{String(index + 1).padStart(2, "0")}</span>
+            <strong data-contact-label>{contact.label}</strong>
+            <span data-contact-value>{contact.value} ↗</span>
+          </Row>
+        );
+      })
+    }
   </section>
 </BaseLayout>

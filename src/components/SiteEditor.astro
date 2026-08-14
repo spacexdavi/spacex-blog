@@ -10,6 +10,14 @@
     <a href="/about/?edit=1" data-site-editor-route data-no-curtain>关于</a>
     <a href="/contact/?edit=1" data-site-editor-route data-no-curtain>联系</a>
   </nav>
+  <section class="site-editor-collection" id="site-editor-collection" hidden>
+    <div class="site-editor-collection__head">
+      <strong id="site-editor-collection-title">列表内容</strong>
+      <button id="site-editor-add-item" type="button">＋ 新增</button>
+    </div>
+    <div class="site-editor-collection__list" id="site-editor-collection-list"></div>
+    <small id="site-editor-collection-hint"></small>
+  </section>
   <p id="site-editor-selection">选择页面上的文字或按钮</p>
   <label class="site-editor-size">
     <span>字号 <output id="site-editor-size-output">—</output></span>
@@ -34,6 +42,12 @@
     type SiteLayoutConfig,
     type SiteLayoutElement,
   } from "../lib/github-app-publisher";
+  import {
+    cloneContacts,
+    cloneProjects,
+    type SiteContact,
+    type SiteProject,
+  } from "../lib/site-content";
 
   const editMode = new URLSearchParams(location.search).get("edit") === "1";
 
@@ -48,6 +62,11 @@
     const exitButton = document.querySelector<HTMLButtonElement>("#site-editor-exit")!;
     const status = document.querySelector<HTMLElement>("#site-editor-status")!;
     const pemInput = document.querySelector<HTMLInputElement>("#site-editor-pem")!;
+    const collectionEditor = document.querySelector<HTMLElement>("#site-editor-collection")!;
+    const collectionTitle = document.querySelector<HTMLElement>("#site-editor-collection-title")!;
+    const collectionList = document.querySelector<HTMLElement>("#site-editor-collection-list")!;
+    const collectionHint = document.querySelector<HTMLElement>("#site-editor-collection-hint")!;
+    const addItemButton = document.querySelector<HTMLButtonElement>("#site-editor-add-item")!;
     const saveLink = document.querySelector<HTMLAnchorElement>(".write-link")!;
     const config = JSON.parse(document.body.dataset.sitePublisherConfig || "{}") as PublisherConfig;
     const missing = missingPublisherConfig(config);
@@ -63,7 +82,9 @@
       const draftUpdatedAt = Date.parse(draft?.updatedAt || "") || 0;
       if (draft?.elements && draftUpdatedAt > deployedUpdatedAt) {
         layout = {
-          version: 1,
+          ...layout,
+          ...draft,
+          version: 2,
           updatedAt: draft.updatedAt,
           elements: { ...(layout.elements || {}), ...draft.elements },
         };
@@ -74,11 +95,21 @@
 
     root.classList.add("site-editor-active");
     panel.classList.add("is-active");
+    layout.version = 2;
     layout.elements ||= {};
+    layout.projects = cloneProjects(layout.projects);
+    layout.contacts = cloneContacts(layout.contacts);
+
+    const normalizePath = (path: string) => path.replace(/\/+$/g, "") || "/";
+    const currentPath = normalizePath(location.pathname);
+    const collectionKind = currentPath === "/projects"
+      ? "projects"
+      : currentPath === "/contact"
+        ? "contacts"
+        : null;
 
     panel.querySelectorAll<HTMLAnchorElement>("[data-site-editor-route]").forEach((link) => {
       const target = new URL(link.href, location.href);
-      const normalizePath = (path: string) => path.replace(/\/+$/g, "") || "/";
       if (normalizePath(target.pathname) === normalizePath(location.pathname)) link.setAttribute("aria-current", "page");
     });
 
@@ -103,6 +134,166 @@
       } catch {}
     };
 
+    const nextItemId = (prefix: string) =>
+      `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+
+    const renderPageCollections = () => {
+      const projectsContainer = document.querySelector<HTMLElement>('[data-site-collection="projects"]');
+      if (projectsContainer) {
+        projectsContainer.replaceChildren();
+        layout.projects!.forEach((project, index) => {
+          const projectUrl = (project.url || "").trim();
+          const row = document.createElement(projectUrl ? "a" : "div");
+          row.className = `manifesto-row${projectUrl ? " manifesto-row--link" : ""}`;
+          row.dataset.siteProjectId = project.id;
+          if (row instanceof HTMLAnchorElement) {
+            row.href = projectUrl;
+            row.target = "_blank";
+            row.rel = "noreferrer";
+          }
+          const number = document.createElement("span");
+          number.dataset.projectIndex = "";
+          number.textContent = String(index + 1).padStart(2, "0");
+          const title = document.createElement("h2");
+          title.dataset.projectTitle = "";
+          title.textContent = project.title;
+          const description = document.createElement("p");
+          description.dataset.projectDescription = "";
+          description.textContent = project.description;
+          row.append(number, title, description);
+          projectsContainer.append(row);
+        });
+        document.querySelector<HTMLElement>('[data-site-collection-count="projects"]')!.textContent =
+          `${String(layout.projects!.length).padStart(2, "0")} Projects`;
+      }
+
+      const contactsContainer = document.querySelector<HTMLElement>('[data-site-collection="contacts"]');
+      if (contactsContainer) {
+        contactsContainer.replaceChildren();
+        layout.contacts!.forEach((contact, index) => {
+          const row = document.createElement(contact.url.trim() ? "a" : "div");
+          row.className = "contact-link";
+          row.dataset.siteContactId = contact.id;
+          if (row instanceof HTMLAnchorElement) {
+            row.href = contact.url.trim();
+            if (/^https?:\/\//.test(contact.url)) {
+              row.target = "_blank";
+              row.rel = "noreferrer";
+            }
+          }
+          const number = document.createElement("span");
+          number.dataset.contactIndex = "";
+          number.textContent = String(index + 1).padStart(2, "0");
+          const label = document.createElement("strong");
+          label.dataset.contactLabel = "";
+          label.textContent = contact.label;
+          const value = document.createElement("span");
+          value.dataset.contactValue = "";
+          value.textContent = `${contact.value} ↗`;
+          row.append(number, label, value);
+          contactsContainer.append(row);
+        });
+        const count = layout.contacts!.length;
+        document.querySelector<HTMLElement>('[data-site-collection-count="contacts"]')!.textContent =
+          `${count} open ${count === 1 ? "channel" : "channels"}`;
+      }
+    };
+
+    const makeCollectionField = (
+      labelText: string,
+      value: string,
+      onInput: (value: string) => void,
+      multiline = false,
+    ) => {
+      const label = document.createElement("label");
+      const caption = document.createElement("span");
+      caption.textContent = labelText;
+      const control = document.createElement(multiline ? "textarea" : "input") as HTMLInputElement | HTMLTextAreaElement;
+      control.value = value;
+      control.addEventListener("input", () => {
+        onInput(control.value);
+        renderPageCollections();
+        persistDraft();
+      });
+      label.append(caption, control);
+      return label;
+    };
+
+    const renderCollectionEditor = () => {
+      if (!collectionKind) return;
+      collectionEditor.hidden = false;
+      collectionList.replaceChildren();
+      const items = collectionKind === "projects" ? layout.projects! : layout.contacts!;
+      collectionTitle.textContent = collectionKind === "projects" ? "项目列表" : "联系方式";
+      collectionHint.textContent = collectionKind === "projects"
+        ? "链接可留空；填写后项目整行可点击。"
+        : "支持 https://、mailto: 和 tel: 链接。";
+
+      items.forEach((item, index) => {
+        const card = document.createElement("article");
+        card.className = "site-editor-collection__item";
+        const head = document.createElement("div");
+        const number = document.createElement("strong");
+        number.textContent = String(index + 1).padStart(2, "0");
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "删除";
+        remove.addEventListener("click", () => {
+          if (!confirm(`确定删除第 ${index + 1} 项吗？保存前仍可刷新页面撤销。`)) return;
+          if (collectionKind === "projects") layout.projects!.splice(index, 1);
+          else layout.contacts!.splice(index, 1);
+          renderPageCollections();
+          renderCollectionEditor();
+          persistDraft();
+        });
+        head.append(number, remove);
+        card.append(head);
+
+        if (collectionKind === "projects") {
+          const project = item as SiteProject;
+          card.append(
+            makeCollectionField("项目名称", project.title, (value) => project.title = value),
+            makeCollectionField("项目简介", project.description, (value) => project.description = value, true),
+            makeCollectionField("跳转链接", project.url || "", (value) => project.url = value),
+          );
+        } else {
+          const contact = item as SiteContact;
+          card.append(
+            makeCollectionField("名称", contact.label, (value) => contact.label = value),
+            makeCollectionField("显示内容", contact.value, (value) => contact.value = value),
+            makeCollectionField("跳转链接", contact.url, (value) => contact.url = value),
+          );
+        }
+        collectionList.append(card);
+      });
+    };
+
+    if (collectionKind) {
+      renderPageCollections();
+      renderCollectionEditor();
+      addItemButton.addEventListener("click", () => {
+        if (collectionKind === "projects") {
+          layout.projects!.push({
+            id: nextItemId("project"),
+            title: "新项目",
+            description: "在这里填写项目简介。",
+            url: "",
+          });
+        } else {
+          layout.contacts!.push({
+            id: nextItemId("contact"),
+            label: "新联系方式",
+            value: "填写账号或地址",
+            url: "",
+          });
+        }
+        renderPageCollections();
+        renderCollectionEditor();
+        persistDraft();
+        collectionList.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
+
     const applyDraft = (element: HTMLElement) => {
       const saved = layout.elements[element.dataset.siteEdit!];
       if (!saved) return;
@@ -110,7 +301,10 @@
       if (typeof saved.text === "string") textTarget.textContent = saved.text;
       if (Number.isFinite(saved.x)) element.style.setProperty("--site-x", `${saved.x}px`);
       if (Number.isFinite(saved.y)) element.style.setProperty("--site-y", `${saved.y}px`);
-      if (Number.isFinite(saved.fontSize)) element.style.fontSize = `${saved.fontSize}px`;
+      if (Number.isFinite(saved.fontSize)) {
+        element.style.setProperty("--site-font-size", `${saved.fontSize}px`);
+        element.dataset.siteFontSize = String(saved.fontSize);
+      }
     };
 
     const selectElement = (element: HTMLElement) => {
@@ -182,7 +376,8 @@
         entryFor(element).text = textTargetFor(element).innerText.replace(/\n{3,}/g, "\n\n").trim();
       });
       layout = {
-        version: 1,
+        ...layout,
+        version: 2,
         updatedAt: new Date().toISOString(),
         elements: layout.elements,
       };
@@ -205,7 +400,8 @@
       if (!selected) return;
       const value = Number(sizeInput.value);
       entryFor(selected).fontSize = value;
-      selected.style.fontSize = `${value}px`;
+      selected.style.setProperty("--site-font-size", `${value}px`);
+      selected.dataset.siteFontSize = String(value);
       sizeOutput.value = `${value}px`;
       persistDraft();
     });
@@ -230,7 +426,8 @@
       delete saved.fontSize;
       selected.style.setProperty("--site-x", "0px");
       selected.style.setProperty("--site-y", "0px");
-      selected.style.removeProperty("font-size");
+      selected.style.removeProperty("--site-font-size");
+      delete selected.dataset.siteFontSize;
       const size = Math.round(Number.parseFloat(getComputedStyle(selected).fontSize));
       sizeInput.value = String(size);
       sizeOutput.value = `${size}px`;

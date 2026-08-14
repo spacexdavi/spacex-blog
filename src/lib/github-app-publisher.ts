@@ -1,4 +1,5 @@
 import { KJUR, KEYUTIL } from "jsrsasign";
+import type { SiteContact, SiteProject } from "./site-content";
 
 const API = "https://api.github.com";
 const API_VERSION = "2022-11-28";
@@ -24,6 +25,8 @@ export interface SiteLayoutConfig {
   version: number;
   updatedAt?: string;
   elements: Record<string, SiteLayoutElement>;
+  projects?: SiteProject[];
+  contacts?: SiteContact[];
 }
 
 export interface LocalPublishImage {

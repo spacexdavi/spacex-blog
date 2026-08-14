@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "updatedAt": "2026-08-14T12:52:07.485Z",
   "elements": {
     "statement-body": {
@@ -177,5 +177,27 @@
     "contact-github-handle": {
       "text": "@SPACEXDAVI ↗"
     }
-  }
+  },
+  "projects": [
+    {
+      "id": "better-blog",
+      "title": "BETTER BLOG",
+      "description": "将浏览器写作流程连接到 GitHub 与 Vercel，让发布文章不再依赖本地提交操作。",
+      "url": ""
+    },
+    {
+      "id": "blogx",
+      "title": "BLOGX",
+      "description": "以航天视觉语言重新设计的个人博客，并持续实验页面切换、光标、粒子与滚动交互。",
+      "url": ""
+    }
+  ],
+  "contacts": [
+    {
+      "id": "github",
+      "label": "GitHub",
+      "value": "@SPACEXDAVI",
+      "url": "https://github.com/spacexdavi"
+    }
+  ]
 }

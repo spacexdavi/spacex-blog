@@ -93,7 +93,7 @@ const sitePublisherConfig = {
             if (Number.isFinite(saved.x)) element.style.setProperty("--site-x", `${saved.x}px`);
             if (Number.isFinite(saved.y)) element.style.setProperty("--site-y", `${saved.y}px`);
             if (Number.isFinite(saved.fontSize)) {
-              element.style.fontSize = `${saved.fontSize}px`;
+              element.style.setProperty("--site-font-size", `${saved.fontSize}px`);
               element.dataset.siteFontSize = String(saved.fontSize);
             }
           }

@@ -1,4 +1,181 @@
 {
   "version": 1,
-  "elements": {}
+  "updatedAt": "2026-08-14T12:52:07.485Z",
+  "elements": {
+    "statement-body": {
+      "text": "Spacexdavid是一份生活与科技的“搭车客指南”"
+    },
+    "statement-title": {
+      "text": "DON'T PANIC",
+      "fontSize": 161
+    },
+    "statement-eyebrow": {
+      "text": "THE HITCHHIKER'S GUIDE TO LIFE"
+    },
+    "header-logo": {
+      "text": "Spacexdavid",
+      "fontSize": 43
+    },
+    "header-articles": {
+      "text": "文章",
+      "fontSize": 20
+    },
+    "header-projects": {
+      "text": "项目",
+      "fontSize": 20
+    },
+    "header-about": {
+      "text": "关于",
+      "fontSize": 20
+    },
+    "header-contact": {
+      "text": "联系",
+      "fontSize": 20
+    },
+    "hero-eyebrow": {
+      "text": "PERSONAL FLIGHT LOG / EST. 2026"
+    },
+    "hero-title": {
+      "text": "HERE IS STAGE 0"
+    },
+    "hero-summary": {
+      "text": "网站之始想说的话"
+    },
+    "hero-primary-action": {
+      "text": "阅读日志"
+    },
+    "hero-date": {
+      "text": "2026.08.14"
+    },
+    "hero-scroll-cue": {
+      "text": "SCROLL TO EXPLORE"
+    },
+    "statement-link": {
+      "text": "了解这份日志"
+    },
+    "archive-strip-count": {
+      "text": "01 TRANSMISSIONS RECEIVED"
+    },
+    "archive-strip-title": {
+      "text": "浏览全部\n日志"
+    },
+    "archive-strip-action": {
+      "text": "进入归档"
+    },
+    "footer-message": {
+      "text": "Made on Earth by humans"
+    },
+    "archive-page-title": {
+      "fontSize": 125,
+      "text": "ALL\nARTICLE"
+    },
+    "archive-page-eyebrow": {
+      "text": "ARCHIVE / 2026"
+    },
+    "archive-page-count": {
+      "text": "01 ENTRIES"
+    },
+    "archive-page-description": {
+      "text": "按时间接收所有已经发出的信号。每篇文章都是一次坐标记录，也是下一次思考的起点。"
+    },
+    "archive-stage0-index": {
+      "text": "01"
+    },
+    "archive-stage0-date": {
+      "text": "2026.08.14"
+    },
+    "archive-stage0-category": {
+      "text": "BLOG"
+    },
+    "archive-stage0-title": {
+      "text": "HERE IS STAGE 0"
+    },
+    "archive-stage0-arrow": {
+      "text": "→"
+    },
+    "projects-page-eyebrow": {
+      "text": "SELECTED PROJECTS / ONGOING"
+    },
+    "projects-page-title": {
+      "text": "PROJECTS"
+    },
+    "projects-page-count": {
+      "text": "02 PROJECTS"
+    },
+    "projects-page-description": {
+      "text": "围绕写作、发布和数字体验持续进行的个人项目。它们并非终点，而是仍在更新的工作现场。"
+    },
+    "project-better-blog-index": {
+      "text": "01"
+    },
+    "project-better-blog-title": {
+      "text": "BETTER BLOG"
+    },
+    "project-better-blog-description": {
+      "text": "将浏览器写作流程连接到 GitHub 与 Vercel，让发布文章不再依赖本地提交操作。"
+    },
+    "project-blogx-index": {
+      "text": "02"
+    },
+    "project-blogx-title": {
+      "text": "BLOGX"
+    },
+    "project-blogx-description": {
+      "text": "以航天视觉语言重新设计的个人博客，并持续实验页面切换、光标、粒子与滚动交互。"
+    },
+    "about-page-title": {
+      "text": "DO NOT GO GENTLE INTO THAT GOOD NIGHT"
+    },
+    "about-page-eyebrow": {
+      "text": "ABOUT THIS JOURNAL"
+    },
+    "about-observe-index": {
+      "text": "01"
+    },
+    "about-observe-title": {
+      "text": "观察，而不是追赶"
+    },
+    "about-observe-description": {
+      "text": "热点会迅速远去，真正值得写下的东西通常走得更慢。这份博客尝试保留问题，而不急于给出结论。"
+    },
+    "about-explain-index": {
+      "text": "02"
+    },
+    "about-explain-title": {
+      "text": "把复杂的事说清楚"
+    },
+    "about-explain-description": {
+      "text": "技术不是冷冰冰的名词集合。好的解释应该像一张航图，让人知道我们从哪里来，又可能去往哪里。"
+    },
+    "about-open-index": {
+      "text": "03"
+    },
+    "about-open-title": {
+      "text": "保持向未知开放"
+    },
+    "about-open-description": {
+      "text": "文章不是终稿，只是此刻的坐标。允许修正、允许重写，也允许在答案之外继续前进。"
+    },
+    "contact-page-eyebrow": {
+      "text": "CONTACT / OPEN CHANNEL"
+    },
+    "contact-page-title": {
+      "text": "CONTACT"
+    },
+    "contact-page-count": {
+      "text": "ONE OPEN CHANNEL"
+    },
+    "contact-page-description": {
+      "text": "如果你想交流项目、文章或新的想法，目前可以通过 GitHub 找到我。"
+    },
+    "contact-github-index": {
+      "text": "01"
+    },
+    "contact-github-title": {
+      "text": "GitHub"
+    },
+    "contact-github-handle": {
+      "text": "@SPACEXDAVI ↗"
+    }
+  }
 }

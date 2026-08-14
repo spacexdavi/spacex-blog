@@ -1,0 +1,481 @@
+---
+import Header from "../components/Header.astro";
+import Footer from "../components/Footer.astro";
+import SiteEditor from "../components/SiteEditor.astro";
+import siteLayout from "../data/site-layout.json";
+import "../styles/global.css";
+
+interface Props {
+  title?: string;
+  description?: string;
+  image?: string;
+  headerMode?: "overlay" | "solid";
+  noFooter?: boolean;
+}
+
+const {
+  title = "Spacexdavid",
+  description = "记录技术、远方与仍在发生的一切。",
+  image = "/images/hero-flight.jpg",
+  headerMode = "overlay",
+  noFooter = false,
+} = Astro.props;
+
+const pageTitle = title === "Spacexdavid" ? title : `${title} — Spacexdavid`;
+const sitePublisherConfig = {
+  owner: import.meta.env.PUBLIC_GITHUB_OWNER || "",
+  repo: import.meta.env.PUBLIC_GITHUB_REPO || "",
+  branch: import.meta.env.PUBLIC_GITHUB_BRANCH || "main",
+  appId: import.meta.env.PUBLIC_GITHUB_APP_ID || "",
+  postsPath: import.meta.env.PUBLIC_GITHUB_POSTS_PATH || "src/content/posts",
+  imagesPath: import.meta.env.PUBLIC_GITHUB_IMAGES_PATH || "public/blogs",
+  siteLayoutPath: import.meta.env.PUBLIC_GITHUB_SITE_LAYOUT_PATH || "src/data/site-layout.json",
+};
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#050505" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/favicon.png" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={image} />
+    <meta property="og:type" content="website" />
+    <title>{pageTitle}</title>
+    <script is:inline>
+      try {
+        const pendingCurtain = sessionStorage.getItem("orbital-page-curtain");
+        if (pendingCurtain) {
+          const parsedCurtain = JSON.parse(pendingCurtain);
+          document.documentElement.dataset.curtainArrival = parsedCurtain.direction || "forward";
+        }
+      } catch {}
+    </script>
+  </head>
+  <body data-site-layout={JSON.stringify(siteLayout)} data-site-publisher-config={JSON.stringify(sitePublisherConfig)}>
+    <div class="page-progress" aria-hidden="true"></div>
+    <div class="custom-cursor" aria-hidden="true">
+      <span class="custom-cursor__ring"></span>
+      <span class="custom-cursor__dot"></span>
+    </div>
+    <div class="page-curtain" aria-hidden="true">
+      <div class="page-curtain__panel">
+        <span class="page-curtain__eyebrow">页面切换</span>
+        <strong class="page-curtain__title">下一页</strong>
+        <span class="page-curtain__counter">00 / 00</span>
+      </div>
+    </div>
+    <SiteEditor />
+    <Header mode={headerMode} />
+    <main>
+      <slot />
+    </main>
+    {!noFooter && <Footer />}
+    <script is:inline>
+      (() => {
+        let layout = { elements: {} };
+        try {
+          layout = JSON.parse(document.body.dataset.siteLayout || '{"elements":{}}');
+        } catch {}
+
+        document.querySelectorAll("[data-site-edit], [data-site-bind]").forEach((element) => {
+          const id = element.dataset.siteEdit || element.dataset.siteBind;
+          const saved = id ? layout.elements?.[id] : null;
+          if (!saved) return;
+          const textTarget = element.querySelector("[data-site-edit-text]") || element;
+          if (typeof saved.text === "string") textTarget.textContent = saved.text;
+          if (element.dataset.siteEdit) {
+            if (Number.isFinite(saved.x)) element.style.setProperty("--site-x", `${saved.x}px`);
+            if (Number.isFinite(saved.y)) element.style.setProperty("--site-y", `${saved.y}px`);
+            if (Number.isFinite(saved.fontSize)) {
+              element.style.fontSize = `${saved.fontSize}px`;
+              element.dataset.siteFontSize = String(saved.fontSize);
+            }
+          }
+        });
+      })();
+    </script>
+    <script is:inline>
+      const updateProgress = () => {
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        const ratio = max > 0 ? window.scrollY / max : 0;
+        document.querySelector('.page-progress')?.style.setProperty('--progress', `${ratio * 100}%`);
+      };
+      updateProgress();
+      addEventListener('scroll', updateProgress, { passive: true });
+    </script>
+    <script is:inline>
+      (() => {
+        const layers = [...document.querySelectorAll(".hero, .post-section, .article-hero, .about-hero")];
+        if (!layers.length || new URLSearchParams(location.search).get("edit") === "1" || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+        const visibleLayers = new Set();
+        let frame = 0;
+
+        const updateParallax = () => {
+          frame = 0;
+          const viewportCenter = innerHeight / 2;
+          visibleLayers.forEach((layer) => {
+            const rect = layer.getBoundingClientRect();
+            const distance = rect.top + rect.height / 2 - viewportCenter;
+            const limit = Math.min(110, rect.height * 0.1);
+            const offset = Math.max(-limit, Math.min(limit, -distance * 0.18));
+            layer.style.setProperty("--parallax-y", `${offset.toFixed(2)}px`);
+          });
+        };
+
+        const scheduleParallax = () => {
+          if (!frame) frame = requestAnimationFrame(updateParallax);
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) visibleLayers.add(entry.target);
+            else visibleLayers.delete(entry.target);
+          });
+          scheduleParallax();
+        }, { rootMargin: "15% 0px" });
+
+        layers.forEach((layer) => observer.observe(layer));
+        addEventListener("scroll", scheduleParallax, { passive: true });
+        addEventListener("resize", scheduleParallax, { passive: true });
+        scheduleParallax();
+
+        addEventListener("pagehide", () => {
+          observer.disconnect();
+          if (frame) cancelAnimationFrame(frame);
+        }, { once: true });
+      })();
+    </script>
+    <script is:inline>
+      (() => {
+        const finePointer = matchMedia("(hover: hover) and (pointer: fine)");
+        const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+        const cursor = document.querySelector(".custom-cursor");
+        const dot = cursor?.querySelector(".custom-cursor__dot");
+        const ring = cursor?.querySelector(".custom-cursor__ring");
+
+        if (!cursor || !dot || !ring || new URLSearchParams(location.search).get("edit") === "1" || !finePointer.matches || reduceMotion.matches) return;
+
+        document.documentElement.classList.add("custom-cursor-enabled");
+
+        let targetX = innerWidth / 2;
+        let targetY = innerHeight / 2;
+        let ringX = targetX;
+        let ringY = targetY;
+        let mergeX = targetX;
+        let mergeY = targetY;
+        let merging = false;
+        let frame = 0;
+
+        const moveElement = (element, x, y) => {
+          element.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+        };
+
+        const render = () => {
+          const destinationX = merging ? mergeX : targetX;
+          const destinationY = merging ? mergeY : targetY;
+          const followStrength = merging ? 0.24 : 0.16;
+          ringX += (destinationX - ringX) * followStrength;
+          ringY += (destinationY - ringY) * followStrength;
+          moveElement(ring, ringX, ringY);
+          frame = requestAnimationFrame(render);
+        };
+
+        const isInteractive = (target) => target instanceof Element && Boolean(target.closest(
+          "a, button, input, textarea, select, label, summary, [role='button'], [contenteditable='true'], [data-cursor='interactive']"
+        ));
+
+        const show = () => cursor.classList.add("is-visible");
+        const clearMerge = () => {
+          merging = false;
+          cursor.classList.remove("is-merging");
+        };
+        const hide = () => {
+          clearMerge();
+          cursor.classList.remove("is-visible", "is-hovering", "is-pressed");
+        };
+        const resetAtEntry = (event) => {
+          targetX = event.clientX;
+          targetY = event.clientY;
+          ringX = targetX;
+          ringY = targetY;
+          moveElement(dot, targetX, targetY);
+          moveElement(ring, ringX, ringY);
+          cursor.classList.toggle("is-hovering", isInteractive(event.target));
+          show();
+        };
+
+        document.addEventListener("orbital:cursor-merge", (event) => {
+          const detail = event.detail;
+          if (!detail?.active) {
+            clearMerge();
+            return;
+          }
+          merging = true;
+          mergeX = detail.x;
+          mergeY = detail.y;
+          cursor.style.setProperty("--cursor-merge-width", `${detail.width}px`);
+          cursor.style.setProperty("--cursor-merge-height", `${detail.height}px`);
+          cursor.style.setProperty("--cursor-merge-radius", detail.radius || "0px");
+          cursor.classList.add("is-merging");
+        });
+
+        addEventListener("pointermove", (event) => {
+          if (event.pointerType && event.pointerType !== "mouse") return;
+          targetX = event.clientX;
+          targetY = event.clientY;
+          moveElement(dot, targetX, targetY);
+          cursor.classList.toggle("is-hovering", isInteractive(event.target));
+          show();
+        }, { passive: true });
+
+        addEventListener("pointerdown", (event) => {
+          if (!event.pointerType || event.pointerType === "mouse") cursor.classList.add("is-pressed");
+        }, { passive: true });
+        addEventListener("pointerup", () => cursor.classList.remove("is-pressed"), { passive: true });
+        document.documentElement.addEventListener("mouseleave", hide);
+        document.documentElement.addEventListener("mouseenter", resetAtEntry);
+        addEventListener("blur", hide);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) hide();
+        });
+
+        moveElement(dot, targetX, targetY);
+        moveElement(ring, ringX, ringY);
+        frame = requestAnimationFrame(render);
+
+        addEventListener("pagehide", () => cancelAnimationFrame(frame), { once: true });
+      })();
+    </script>
+    <script is:inline>
+      (() => {
+        if (new URLSearchParams(location.search).get("edit") === "1" || !matchMedia("(hover: hover) and (pointer: fine)").matches || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+        const selector = "button, .outline-button, [data-magnetic]";
+        const targets = new Set();
+        const attractionRadius = 72;
+        const maximumOffset = 12;
+        let pointerX = -1000;
+        let pointerY = -1000;
+        let updateFrame = 0;
+
+        const register = (root) => {
+          if (!(root instanceof Element)) return;
+          if (root.matches(selector)) {
+            root.classList.add("magnetic-target");
+            targets.add(root);
+          }
+          root.querySelectorAll?.(selector).forEach((target) => {
+            target.classList.add("magnetic-target");
+            targets.add(target);
+          });
+        };
+
+        const release = (target) => {
+          target.classList.remove("is-magnetic");
+          target.style.setProperty("--magnetic-x", "0px");
+          target.style.setProperty("--magnetic-y", "0px");
+        };
+
+        const setCursorMerge = (detail) => {
+          document.dispatchEvent(new CustomEvent("orbital:cursor-merge", { detail }));
+        };
+
+        const releaseAll = () => {
+          targets.forEach(release);
+          setCursorMerge({ active: false });
+        };
+
+        const update = () => {
+          updateFrame = 0;
+          let candidate = null;
+
+          targets.forEach((target) => {
+            if (!target.isConnected) {
+              targets.delete(target);
+              return;
+            }
+            if (target.matches(":disabled")) {
+              release(target);
+              return;
+            }
+
+            const rect = target.getBoundingClientRect();
+            if (!rect.width || !rect.height) {
+              release(target);
+              return;
+            }
+
+            const nearestX = Math.max(rect.left, Math.min(pointerX, rect.right));
+            const nearestY = Math.max(rect.top, Math.min(pointerY, rect.bottom));
+            const edgeDistance = Math.hypot(pointerX - nearestX, pointerY - nearestY);
+            if (edgeDistance <= attractionRadius && (!candidate || edgeDistance < candidate.edgeDistance)) {
+              candidate = { target, rect, edgeDistance };
+            }
+          });
+
+          targets.forEach((target) => {
+            if (target !== candidate?.target) release(target);
+          });
+
+          if (!candidate) {
+            setCursorMerge({ active: false });
+            return;
+          }
+
+          const { target, rect, edgeDistance } = candidate;
+          const previousX = Number.parseFloat(target.style.getPropertyValue("--magnetic-x")) || 0;
+          const previousY = Number.parseFloat(target.style.getPropertyValue("--magnetic-y")) || 0;
+          const centerX = rect.left + rect.width / 2 - previousX;
+          const centerY = rect.top + rect.height / 2 - previousY;
+          const strength = 1 - edgeDistance / attractionRadius;
+          const offsetX = Math.max(-maximumOffset, Math.min(maximumOffset, (pointerX - centerX) * 0.14 * strength));
+          const offsetY = Math.max(-maximumOffset, Math.min(maximumOffset, (pointerY - centerY) * 0.18 * strength));
+
+          target.classList.add("is-magnetic");
+          target.style.setProperty("--magnetic-x", `${offsetX.toFixed(2)}px`);
+          target.style.setProperty("--magnetic-y", `${offsetY.toFixed(2)}px`);
+
+          setCursorMerge({
+            active: true,
+            x: centerX + offsetX,
+            y: centerY + offsetY,
+            width: rect.width + 2,
+            height: rect.height + 2,
+            radius: getComputedStyle(target).borderRadius,
+          });
+        };
+
+        register(document.body);
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => mutation.addedNodes.forEach(register));
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        addEventListener("pointermove", (event) => {
+          if (event.pointerType && event.pointerType !== "mouse") return;
+          pointerX = event.clientX;
+          pointerY = event.clientY;
+          if (!updateFrame) updateFrame = requestAnimationFrame(update);
+        }, { passive: true });
+
+        document.documentElement.addEventListener("mouseleave", releaseAll);
+        addEventListener("blur", releaseAll);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) releaseAll();
+        });
+        addEventListener("pagehide", () => {
+          observer.disconnect();
+          if (updateFrame) cancelAnimationFrame(updateFrame);
+        }, { once: true });
+      })();
+    </script>
+    <script is:inline>
+      (() => {
+        const storageKey = "orbital-page-curtain";
+        const curtain = document.querySelector(".page-curtain");
+        const title = curtain?.querySelector(".page-curtain__title");
+        const counter = curtain?.querySelector(".page-curtain__counter");
+        const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+        let transitioning = false;
+
+        const routeIndex = (pathname) => {
+          if (pathname.startsWith("/admin/")) return 5;
+          if (pathname.startsWith("/contact")) return 4;
+          if (pathname.startsWith("/about")) return 3;
+          if (pathname.startsWith("/projects")) return 2;
+          if (pathname.startsWith("/archive")) return 1;
+          if (pathname.startsWith("/posts/")) return 1;
+          return 0;
+        };
+
+        const routeLabel = (url, anchor) => {
+          const explicit = anchor.dataset.curtainTitle;
+          if (explicit) return explicit;
+          const labelTarget = anchor.querySelector("[data-site-edit-text]");
+          const text = (labelTarget?.textContent || anchor.textContent)
+            ?.replace(/[↗→↑]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+          if (text && text.length <= 48) return text;
+          if (url.pathname.startsWith("/admin/")) return "写文章";
+          if (url.pathname.startsWith("/contact")) return "联系";
+          if (url.pathname.startsWith("/about")) return "关于";
+          if (url.pathname.startsWith("/projects")) return "项目";
+          if (url.pathname.startsWith("/archive")) return "文章";
+          if (url.pathname === "/") return "首页";
+          return "下一页";
+        };
+
+        const clearCurtain = () => {
+          document.documentElement.removeAttribute("data-curtain-arrival");
+          curtain?.classList.remove("is-covering", "is-revealing");
+          curtain?.removeAttribute("data-direction");
+          transitioning = false;
+        };
+
+        const arrivalDirection = document.documentElement.dataset.curtainArrival;
+        if (arrivalDirection && curtain && !reduceMotion) {
+          let stored = null;
+          try {
+            stored = JSON.parse(sessionStorage.getItem(storageKey) || "null");
+            sessionStorage.removeItem(storageKey);
+          } catch {}
+          curtain.dataset.direction = arrivalDirection;
+          if (title) title.textContent = stored?.label || "下一页";
+          if (counter) counter.textContent = stored?.counter || "00 / 00";
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => curtain.classList.add("is-revealing"));
+          });
+          setTimeout(clearCurtain, 820);
+        } else {
+          try { sessionStorage.removeItem(storageKey); } catch {}
+          clearCurtain();
+        }
+
+        document.addEventListener("click", (event) => {
+          if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          const anchor = event.target.closest?.("a[href]");
+          if (!anchor || anchor.dataset.noCurtain !== undefined || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+
+          const rawHref = anchor.getAttribute("href");
+          if (!rawHref || rawHref.startsWith("#") || rawHref.startsWith("mailto:") || rawHref.startsWith("tel:")) return;
+
+          const targetUrl = new URL(anchor.href, location.href);
+          if (targetUrl.origin !== location.origin) return;
+          if (targetUrl.pathname === location.pathname && targetUrl.search === location.search && targetUrl.hash === location.hash) return;
+          if (reduceMotion || !curtain || transitioning) return;
+
+          event.preventDefault();
+          transitioning = true;
+          const fromIndex = routeIndex(location.pathname);
+          const toIndex = routeIndex(targetUrl.pathname);
+          const direction = toIndex >= fromIndex ? "forward" : "back";
+          const label = routeLabel(targetUrl, anchor);
+          const total = 6;
+          const count = Math.max(1, toIndex + 1);
+          const counterText = `${String(count).padStart(2, "0")} / ${String(total).padStart(2, "0")}`;
+
+          curtain.dataset.direction = direction;
+          if (title) title.textContent = label;
+          if (counter) counter.textContent = counterText;
+          try {
+            sessionStorage.setItem(storageKey, JSON.stringify({ direction, label, counter: counterText }));
+          } catch {}
+          curtain.classList.add("is-covering");
+          setTimeout(() => location.assign(targetUrl.href), 620);
+        });
+
+        addEventListener("pageshow", (event) => {
+          if (event.persisted) clearCurtain();
+        });
+      })();
+    </script>
+  </body>
+</html>

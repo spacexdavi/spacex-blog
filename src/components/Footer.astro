@@ -1,0 +1,138 @@
+<div class="footer-reveal">
+  <footer class="site-footer">
+    <canvas class="footer-ripple-grid" aria-hidden="true"></canvas>
+    <p class="footer-message" data-site-edit="footer-message">Made on Earth by humans</p>
+  </footer>
+</div>
+
+<script>
+  type Particle = {
+    homeX: number;
+    homeY: number;
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+  };
+
+  const canvas = document.querySelector<HTMLCanvasElement>(".footer-ripple-grid");
+  const footerReveal = document.querySelector<HTMLElement>(".footer-reveal");
+  const context = canvas?.getContext("2d");
+
+  if (canvas && footerReveal && context) {
+    const particles: Particle[] = [];
+    const mouse = { x: 0, y: 0, active: false };
+    const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let width = 0;
+    let height = 0;
+    let frame = 0;
+    let running = false;
+
+    const draw = (animate = true) => {
+      context.clearRect(0, 0, width, height);
+      context.fillStyle = "rgba(5, 5, 5, 0.72)";
+
+      particles.forEach((particle) => {
+        if (animate) {
+          if (mouse.active) {
+            const dx = particle.x - mouse.x;
+            const dy = particle.y - mouse.y;
+            const distance = Math.max(1, Math.hypot(dx, dy));
+            const radius = 118;
+
+            if (distance < radius) {
+              const force = Math.pow(1 - distance / radius, 2) * 2.35;
+              particle.vx += (dx / distance) * force;
+              particle.vy += (dy / distance) * force;
+            }
+          }
+
+          particle.vx += (particle.homeX - particle.x) * 0.045;
+          particle.vy += (particle.homeY - particle.y) * 0.045;
+          particle.vx *= 0.855;
+          particle.vy *= 0.855;
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+        }
+
+        const speed = Math.hypot(particle.vx, particle.vy);
+        const dotSize = 1.05 + Math.min(speed * 0.08, 0.7);
+        context.beginPath();
+        context.arc(particle.x, particle.y, dotSize, 0, Math.PI * 2);
+        context.fill();
+      });
+    };
+
+    const tick = () => {
+      if (!running) return;
+      draw(true);
+      frame = requestAnimationFrame(tick);
+    };
+
+    const start = () => {
+      if (running || reduceMotion) return;
+      running = true;
+      frame = requestAnimationFrame(tick);
+    };
+
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(frame);
+    };
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      width = rect.width;
+      height = rect.height;
+      canvas.width = Math.max(1, Math.round(width * dpr));
+      canvas.height = Math.max(1, Math.round(height * dpr));
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      particles.length = 0;
+      const spacing = width < 640 ? 34 : 44;
+      const columns = Math.max(2, Math.ceil(width / spacing));
+      const rows = Math.max(2, Math.ceil(height / spacing));
+      const startX = (width - (columns - 1) * spacing) / 2;
+      const startY = (height - (rows - 1) * spacing) / 2;
+
+      for (let row = 0; row < rows; row += 1) {
+        for (let column = 0; column < columns; column += 1) {
+          const x = startX + column * spacing;
+          const y = startY + row * spacing;
+          particles.push({ homeX: x, homeY: y, x, y, vx: 0, vy: 0 });
+        }
+      }
+
+      draw(false);
+    };
+
+    canvas.addEventListener("pointermove", (event) => {
+      if (event.pointerType && event.pointerType !== "mouse") return;
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = event.clientX - rect.left;
+      mouse.y = event.clientY - rect.top;
+      mouse.active = true;
+    }, { passive: true });
+    canvas.addEventListener("pointerleave", () => {
+      mouse.active = false;
+    });
+
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(canvas);
+
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) start();
+      else stop();
+    });
+    visibilityObserver.observe(footerReveal);
+
+    resize();
+
+    addEventListener("pagehide", () => {
+      stop();
+      resizeObserver.disconnect();
+      visibilityObserver.disconnect();
+    }, { once: true });
+  }
+</script>

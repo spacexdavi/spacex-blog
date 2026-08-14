@@ -1,0 +1,348 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { formatPostDate, getPublishedPosts, postSlug } from "../../lib/posts";
+
+const posts = await getPublishedPosts();
+const today = new Date().toISOString().slice(0, 10);
+const publisherConfig = {
+  owner: import.meta.env.PUBLIC_GITHUB_OWNER || "",
+  repo: import.meta.env.PUBLIC_GITHUB_REPO || "",
+  branch: import.meta.env.PUBLIC_GITHUB_BRANCH || "main",
+  appId: import.meta.env.PUBLIC_GITHUB_APP_ID || "",
+  postsPath: import.meta.env.PUBLIC_GITHUB_POSTS_PATH || "src/content/posts",
+  imagesPath: import.meta.env.PUBLIC_GITHUB_IMAGES_PATH || "public/blogs",
+  siteLayoutPath: import.meta.env.PUBLIC_GITHUB_SITE_LAYOUT_PATH || "src/data/site-layout.json",
+};
+---
+
+<BaseLayout title="写文章" headerMode="solid" noFooter>
+  <section class="admin-page" data-publisher-config={JSON.stringify(publisherConfig)}>
+    <header class="admin-heading">
+      <div>
+        <p class="eyebrow">Browser publishing console</p>
+        <h1>Write /<br />Transmit</h1>
+      </div>
+      <div class="admin-heading__side">
+        <p>文章和图片会通过 GitHub App 直接提交到仓库。Vercel 检测到新提交后，会自动完成下一次部署。</p>
+        <a class="mini-button editor-settings-link" href="/?edit=1" data-no-curtain>
+          设置页面 <span>↗</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="publisher-notice" id="publisher-status" data-state="idle">
+      <span>等待连接 GitHub App</span>
+      <span>SECURE SESSION / 00</span>
+    </div>
+
+    <div class="publisher-grid">
+      <section class="editor-panel">
+        <div class="panel-head">
+          <span>01 / Article data</span>
+          <div class="editor-tabs">
+            <button class="is-active" id="edit-tab" type="button">编辑</button>
+            <button id="preview-tab" type="button">预览</button>
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field-wide">
+            <label for="post-title">文章标题</label>
+            <input id="post-title" autocomplete="off" placeholder="输入文章标题" />
+          </div>
+          <div class="field">
+            <label for="post-slug">Slug / 文件地址</label>
+            <input id="post-slug" autocomplete="off" placeholder="例如 first-contact" />
+          </div>
+          <div class="field">
+            <label for="post-date">发布日期</label>
+            <input id="post-date" type="date" value={today} />
+          </div>
+          <div class="field">
+            <label for="post-category">栏目</label>
+            <input id="post-category" value="JOURNAL" placeholder="JOURNAL" />
+          </div>
+          <div class="field">
+            <label for="post-tags">标签 / 逗号分隔</label>
+            <input id="post-tags" placeholder="技术, 观察, 生活" />
+          </div>
+          <div class="field-wide">
+            <label for="post-summary">文章摘要</label>
+            <input id="post-summary" placeholder="用一句话说明这篇文章" />
+          </div>
+        </div>
+        <textarea class="markdown-editor" id="post-body" spellcheck="false" placeholder="# 从这里开始写作…"></textarea>
+        <div class="markdown-preview prose is-hidden" id="markdown-preview"></div>
+      </section>
+
+      <aside class="publisher-sidebar">
+        <div class="panel-head"><span>02 / Payload</span><span>GitHub</span></div>
+        <div class="sidebar-section">
+          <span class="control-label">GitHub App 私钥</span>
+          <label class="file-drop">
+            <input id="pem-file" type="file" accept=".pem,.key,text/plain" />
+            <span><strong id="pem-label">选择 .pem 私钥</strong>私钥只保留在当前页面内存中</span>
+          </label>
+        </div>
+        <div class="sidebar-section">
+          <span class="control-label">封面外链 / 可选</span>
+          <input id="cover-url" type="url" placeholder="https://…" />
+          <p id="cover-state">未选择本地封面，将使用外链或默认封面。</p>
+        </div>
+        <div class="sidebar-section">
+          <span class="control-label">文章图片</span>
+          <label class="file-drop">
+            <input id="image-files" type="file" accept="image/*" multiple />
+            <span><strong>添加本地图片</strong>可插入正文或设为封面</span>
+          </label>
+          <div class="image-list" id="image-list"></div>
+        </div>
+        <div class="sidebar-section">
+          <label><input id="post-featured" type="checkbox" /> 设为首页主文章</label>
+          <button class="primary-action" id="publish-button" type="button"><span>发布到 GitHub</span><span>→</span></button>
+          <p class="security-note">不会上传或保存私钥。发布完成后刷新页面，即会从内存中清除。</p>
+        </div>
+      </aside>
+    </div>
+
+    <section class="manage-panel">
+      <div class="panel-head"><span>03 / Published transmissions</span><span>{posts.length} Entries</span></div>
+      {
+        posts.map((post, index) => (
+          <div class="manage-row" data-slug={postSlug(post.id)}>
+            <span>{String(index + 1).padStart(2, "0")}</span>
+            <div>
+              <strong>{post.data.title}</strong>
+              <small>{formatPostDate(post.data.published)} / {postSlug(post.id)}</small>
+            </div>
+            <button class="danger-action delete-post" type="button">删除</button>
+          </div>
+        ))
+      }
+    </section>
+  </section>
+
+  <script>
+    import { marked } from "marked";
+    import {
+      deletePost,
+      getInstallationToken,
+      missingPublisherConfig,
+      normalizeSlug,
+      postExists,
+      prepareLocalImage,
+      publishPost,
+      type LocalPublishImage,
+      type PublisherConfig,
+    } from "../../lib/github-app-publisher";
+
+    const page = document.querySelector<HTMLElement>(".admin-page")!;
+    const config = JSON.parse(page.dataset.publisherConfig || "{}") as PublisherConfig;
+    const missing = missingPublisherConfig(config);
+    const status = document.querySelector<HTMLElement>("#publisher-status")!;
+    const titleInput = document.querySelector<HTMLInputElement>("#post-title")!;
+    const slugInput = document.querySelector<HTMLInputElement>("#post-slug")!;
+    const dateInput = document.querySelector<HTMLInputElement>("#post-date")!;
+    const categoryInput = document.querySelector<HTMLInputElement>("#post-category")!;
+    const tagsInput = document.querySelector<HTMLInputElement>("#post-tags")!;
+    const summaryInput = document.querySelector<HTMLInputElement>("#post-summary")!;
+    const bodyInput = document.querySelector<HTMLTextAreaElement>("#post-body")!;
+    const coverUrlInput = document.querySelector<HTMLInputElement>("#cover-url")!;
+    const featuredInput = document.querySelector<HTMLInputElement>("#post-featured")!;
+    const pemInput = document.querySelector<HTMLInputElement>("#pem-file")!;
+    const pemLabel = document.querySelector<HTMLElement>("#pem-label")!;
+    const imageInput = document.querySelector<HTMLInputElement>("#image-files")!;
+    const imageList = document.querySelector<HTMLElement>("#image-list")!;
+    const coverState = document.querySelector<HTMLElement>("#cover-state")!;
+    const publishButton = document.querySelector<HTMLButtonElement>("#publish-button")!;
+    const preview = document.querySelector<HTMLElement>("#markdown-preview")!;
+    const editTab = document.querySelector<HTMLButtonElement>("#edit-tab")!;
+    const previewTab = document.querySelector<HTMLButtonElement>("#preview-tab")!;
+
+    let privateKey = "";
+    let images: LocalPublishImage[] = [];
+    let coverFilename = "";
+    let slugWasEdited = false;
+
+    const setStatus = (message: string, state: "idle" | "error" | "success" = "idle") => {
+      status.dataset.state = state;
+      status.firstElementChild!.textContent = message;
+    };
+
+    if (missing.length) {
+      setStatus(`发布功能尚未配置：${missing.join("、")}`, "error");
+      publishButton.disabled = true;
+    }
+
+    titleInput.addEventListener("input", () => {
+      if (!slugWasEdited) slugInput.value = normalizeSlug(titleInput.value);
+    });
+    slugInput.addEventListener("input", () => {
+      slugWasEdited = Boolean(slugInput.value);
+    });
+
+    pemInput.addEventListener("change", async () => {
+      const file = pemInput.files?.[0];
+      if (!file) return;
+      privateKey = await file.text();
+      if (!privateKey.includes("PRIVATE KEY")) {
+        privateKey = "";
+        pemLabel.textContent = "无法识别这份私钥";
+        setStatus("请选择 GitHub App 生成的 .pem 私钥", "error");
+        return;
+      }
+      pemLabel.textContent = file.name;
+      setStatus("GitHub App 私钥已载入，可以发布", "success");
+    });
+
+    imageInput.addEventListener("change", async () => {
+      const selected = [...(imageInput.files || [])];
+      setStatus("正在准备图片…");
+      for (const file of selected) {
+        const image = await prepareLocalImage(file);
+        if (!images.some((item) => item.filename === image.filename)) images.push(image);
+      }
+      imageInput.value = "";
+      renderImages();
+      setStatus(`${images.length} 张图片已准备完成`, "success");
+    });
+
+    function insertAtCursor(value: string) {
+      const start = bodyInput.selectionStart;
+      const end = bodyInput.selectionEnd;
+      bodyInput.setRangeText(value, start, end, "end");
+      bodyInput.focus();
+    }
+
+    function renderImages() {
+      imageList.replaceChildren();
+      for (const image of images) {
+        const row = document.createElement("div");
+        row.className = "image-item";
+        const thumbnail = document.createElement("img");
+        thumbnail.src = image.previewUrl || "";
+        thumbnail.alt = "本地图片预览";
+        const info = document.createElement("div");
+        const name = document.createElement("strong");
+        name.textContent = image.file.name;
+        const actions = document.createElement("div");
+        actions.className = "image-item__actions";
+
+        const insert = document.createElement("button");
+        insert.type = "button";
+        insert.className = "image-action";
+        insert.textContent = "插入";
+        insert.addEventListener("click", () => insertAtCursor(`\n![${image.file.name}](local-image:${image.filename})\n`));
+
+        const cover = document.createElement("button");
+        cover.type = "button";
+        cover.className = "image-action";
+        cover.textContent = coverFilename === image.filename ? "当前封面" : "设为封面";
+        cover.addEventListener("click", () => {
+          coverFilename = image.filename;
+          coverState.textContent = `本地封面：${image.file.name}`;
+          renderImages();
+        });
+
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "image-action";
+        remove.textContent = "移除";
+        remove.addEventListener("click", () => {
+          images = images.filter((item) => item.filename !== image.filename);
+          if (coverFilename === image.filename) {
+            coverFilename = "";
+            coverState.textContent = "未选择本地封面，将使用外链或默认封面。";
+          }
+          URL.revokeObjectURL(image.previewUrl || "");
+          renderImages();
+        });
+
+        actions.append(insert, cover, remove);
+        info.append(name, actions);
+        row.append(thumbnail, info);
+        imageList.append(row);
+      }
+    }
+
+    previewTab.addEventListener("click", async () => {
+      preview.innerHTML = await marked.parse(bodyInput.value || "*正文预览将在这里显示。*");
+      bodyInput.classList.add("is-hidden");
+      preview.classList.remove("is-hidden");
+      previewTab.classList.add("is-active");
+      editTab.classList.remove("is-active");
+    });
+
+    editTab.addEventListener("click", () => {
+      preview.classList.add("is-hidden");
+      bodyInput.classList.remove("is-hidden");
+      editTab.classList.add("is-active");
+      previewTab.classList.remove("is-active");
+    });
+
+    publishButton.addEventListener("click", async () => {
+      try {
+        if (!privateKey) {
+          pemInput.click();
+          throw new Error("请先选择 GitHub App 的 .pem 私钥");
+        }
+        const slug = normalizeSlug(slugInput.value);
+        if (!titleInput.value.trim()) throw new Error("请填写文章标题");
+        if (!slug) throw new Error("请填写 Slug");
+        if (!dateInput.value) throw new Error("请选择发布日期");
+        if (!bodyInput.value.trim()) throw new Error("文章正文不能为空");
+
+        publishButton.disabled = true;
+        setStatus("正在验证 GitHub App 并检查文章路径…");
+        const token = await getInstallationToken(config, privateKey);
+        const exists = await postExists(config, token, slug);
+        if (exists && !confirm(`Slug “${slug}” 已经存在。是否提交新版本覆盖正文？`)) {
+          setStatus("已取消发布");
+          return;
+        }
+
+        setStatus("正在创建文章、图片与 Git 提交…");
+        const result = await publishPost(config, privateKey, {
+          title: titleInput.value.trim(),
+          slug,
+          published: dateInput.value,
+          summary: summaryInput.value.trim(),
+          category: categoryInput.value.trim() || "JOURNAL",
+          tags: tagsInput.value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean),
+          body: bodyInput.value,
+          coverUrl: coverUrlInput.value.trim(),
+          coverFilename,
+          featured: featuredInput.checked,
+          images,
+        });
+        setStatus(`GitHub 提交成功。Vercel 正在部署 ${result.slug}`, "success");
+      } catch (error) {
+        setStatus(error instanceof Error ? error.message : "发布失败，请稍后重试", "error");
+      } finally {
+        publishButton.disabled = false;
+      }
+    });
+
+    document.querySelectorAll<HTMLButtonElement>(".delete-post").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const row = button.closest<HTMLElement>(".manage-row");
+        const slug = row?.dataset.slug || "";
+        try {
+          if (!privateKey) {
+            pemInput.click();
+            throw new Error("删除前请先选择 GitHub App 的 .pem 私钥");
+          }
+          if (!confirm(`确定删除文章 “${slug}” 及其上传图片吗？Git 历史中仍可恢复。`)) return;
+          button.disabled = true;
+          setStatus(`正在删除 ${slug}…`);
+          await deletePost(config, privateKey, slug);
+          row?.remove();
+          setStatus(`删除提交成功。Vercel 正在重新部署`, "success");
+        } catch (error) {
+          setStatus(error instanceof Error ? error.message : "删除失败，请稍后重试", "error");
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+  </script>
+</BaseLayout>

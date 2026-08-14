@@ -1,0 +1,293 @@
+<aside class="site-editor-panel" id="site-editor-panel" aria-label="全站页面编辑工具">
+  <div class="site-editor-panel__head">
+    <strong>全站页面设置</strong>
+    <button id="site-editor-exit" type="button">退出</button>
+  </div>
+  <nav class="site-editor-pages" aria-label="选择要编辑的页面">
+    <a href="/?edit=1" data-site-editor-route data-no-curtain>首页</a>
+    <a href="/archive/?edit=1" data-site-editor-route data-no-curtain>文章</a>
+    <a href="/projects/?edit=1" data-site-editor-route data-no-curtain>项目</a>
+    <a href="/about/?edit=1" data-site-editor-route data-no-curtain>关于</a>
+    <a href="/contact/?edit=1" data-site-editor-route data-no-curtain>联系</a>
+  </nav>
+  <p id="site-editor-selection">选择页面上的文字或按钮</p>
+  <label class="site-editor-size">
+    <span>字号 <output id="site-editor-size-output">—</output></span>
+    <input id="site-editor-size" type="range" min="10" max="180" step="1" disabled />
+  </label>
+  <div class="site-editor-nudge" aria-label="移动所选元素">
+    <button type="button" data-nudge-x="-4" aria-label="向左移动">←</button>
+    <button type="button" data-nudge-y="-4" aria-label="向上移动">↑</button>
+    <button type="button" data-nudge-y="4" aria-label="向下移动">↓</button>
+    <button type="button" data-nudge-x="4" aria-label="向右移动">→</button>
+  </div>
+  <button class="site-editor-reset" id="site-editor-reset" type="button" disabled>重置所选位置与字号</button>
+  <small id="site-editor-status" aria-live="polite">文字可直接编辑，按钮可拖动。切换页面前无需提交。</small>
+  <input id="site-editor-pem" type="file" accept=".pem,.key,text/plain" hidden />
+</aside>
+
+<script>
+  import {
+    missingPublisherConfig,
+    publishSiteLayout,
+    type PublisherConfig,
+    type SiteLayoutConfig,
+    type SiteLayoutElement,
+  } from "../lib/github-app-publisher";
+
+  const editMode = new URLSearchParams(location.search).get("edit") === "1";
+
+  if (editMode) {
+    const draftKey = "orbital-site-editor-draft";
+    const root = document.documentElement;
+    const panel = document.querySelector<HTMLElement>("#site-editor-panel")!;
+    const selectionLabel = document.querySelector<HTMLElement>("#site-editor-selection")!;
+    const sizeInput = document.querySelector<HTMLInputElement>("#site-editor-size")!;
+    const sizeOutput = document.querySelector<HTMLOutputElement>("#site-editor-size-output")!;
+    const resetButton = document.querySelector<HTMLButtonElement>("#site-editor-reset")!;
+    const exitButton = document.querySelector<HTMLButtonElement>("#site-editor-exit")!;
+    const status = document.querySelector<HTMLElement>("#site-editor-status")!;
+    const pemInput = document.querySelector<HTMLInputElement>("#site-editor-pem")!;
+    const saveLink = document.querySelector<HTMLAnchorElement>(".write-link")!;
+    const config = JSON.parse(document.body.dataset.sitePublisherConfig || "{}") as PublisherConfig;
+    const missing = missingPublisherConfig(config);
+    let layout = JSON.parse(document.body.dataset.siteLayout || '{"version":1,"elements":{}}') as SiteLayoutConfig;
+    let selected: HTMLElement | null = null;
+    let privateKey = "";
+    let pendingSave = false;
+    let saving = false;
+
+    try {
+      const deployedUpdatedAt = Date.parse(layout.updatedAt || "") || 0;
+      const draft = JSON.parse(sessionStorage.getItem(draftKey) || "null") as SiteLayoutConfig | null;
+      const draftUpdatedAt = Date.parse(draft?.updatedAt || "") || 0;
+      if (draft?.elements && draftUpdatedAt > deployedUpdatedAt) {
+        layout = {
+          version: 1,
+          updatedAt: draft.updatedAt,
+          elements: { ...(layout.elements || {}), ...draft.elements },
+        };
+      } else if (draft) {
+        sessionStorage.removeItem(draftKey);
+      }
+    } catch {}
+
+    root.classList.add("site-editor-active");
+    panel.classList.add("is-active");
+    layout.elements ||= {};
+
+    panel.querySelectorAll<HTMLAnchorElement>("[data-site-editor-route]").forEach((link) => {
+      const target = new URL(link.href, location.href);
+      const normalizePath = (path: string) => path.replace(/\/+$/g, "") || "/";
+      if (normalizePath(target.pathname) === normalizePath(location.pathname)) link.setAttribute("aria-current", "page");
+    });
+
+    saveLink.href = "#save-page";
+    saveLink.dataset.noCurtain = "";
+    saveLink.replaceChildren(document.createTextNode("保存 "), Object.assign(document.createElement("span"), { textContent: "↑" }));
+
+    const editable = [...document.querySelectorAll<HTMLElement>("[data-site-edit]")];
+
+    const entryFor = (element: HTMLElement): SiteLayoutElement => {
+      const id = element.dataset.siteEdit!;
+      return (layout.elements[id] ||= {});
+    };
+
+    const textTargetFor = (element: HTMLElement) =>
+      (element.querySelector<HTMLElement>("[data-site-edit-text]") || element);
+
+    const persistDraft = () => {
+      layout.updatedAt = new Date().toISOString();
+      try {
+        sessionStorage.setItem(draftKey, JSON.stringify(layout));
+      } catch {}
+    };
+
+    const applyDraft = (element: HTMLElement) => {
+      const saved = layout.elements[element.dataset.siteEdit!];
+      if (!saved) return;
+      const textTarget = textTargetFor(element);
+      if (typeof saved.text === "string") textTarget.textContent = saved.text;
+      if (Number.isFinite(saved.x)) element.style.setProperty("--site-x", `${saved.x}px`);
+      if (Number.isFinite(saved.y)) element.style.setProperty("--site-y", `${saved.y}px`);
+      if (Number.isFinite(saved.fontSize)) element.style.fontSize = `${saved.fontSize}px`;
+    };
+
+    const selectElement = (element: HTMLElement) => {
+      selected?.classList.remove("is-site-selected");
+      selected = element;
+      selected.classList.add("is-site-selected");
+      const size = Math.round(Number.parseFloat(getComputedStyle(selected).fontSize));
+      sizeInput.disabled = false;
+      resetButton.disabled = false;
+      sizeInput.value = String(Math.max(10, Math.min(180, size)));
+      sizeOutput.value = `${size}px`;
+      selectionLabel.textContent = selected.dataset.siteEdit || "已选择元素";
+    };
+
+    editable.forEach((element) => {
+      applyDraft(element);
+      const textTarget = textTargetFor(element);
+      textTarget.contentEditable = "plaintext-only";
+      textTarget.spellcheck = false;
+      element.addEventListener("click", (event) => {
+        event.preventDefault();
+        selectElement(element);
+      });
+      textTarget.addEventListener("input", () => {
+        entryFor(element).text = textTarget.innerText.replace(/\n{3,}/g, "\n\n");
+        persistDraft();
+      });
+
+      if (element.hasAttribute("data-site-draggable")) {
+        element.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) return;
+          selectElement(element);
+          const saved = entryFor(element);
+          const startX = event.clientX;
+          const startY = event.clientY;
+          const originX = Number(saved.x || 0);
+          const originY = Number(saved.y || 0);
+          let moved = false;
+          element.setPointerCapture(event.pointerId);
+
+          const move = (moveEvent: PointerEvent) => {
+            const nextX = originX + moveEvent.clientX - startX;
+            const nextY = originY + moveEvent.clientY - startY;
+            moved ||= Math.hypot(nextX - originX, nextY - originY) > 2;
+            saved.x = Math.round(nextX);
+            saved.y = Math.round(nextY);
+            element.style.setProperty("--site-x", `${saved.x}px`);
+            element.style.setProperty("--site-y", `${saved.y}px`);
+            element.classList.toggle("is-site-dragging", moved);
+          };
+
+          const stop = () => {
+            element.classList.remove("is-site-dragging");
+            element.removeEventListener("pointermove", move);
+            element.removeEventListener("pointerup", stop);
+            element.removeEventListener("pointercancel", stop);
+            persistDraft();
+          };
+
+          element.addEventListener("pointermove", move);
+          element.addEventListener("pointerup", stop);
+          element.addEventListener("pointercancel", stop);
+        });
+      }
+    });
+
+    const collectLayout = (): SiteLayoutConfig => {
+      editable.forEach((element) => {
+        entryFor(element).text = textTargetFor(element).innerText.replace(/\n{3,}/g, "\n\n").trim();
+      });
+      layout = {
+        version: 1,
+        updatedAt: new Date().toISOString(),
+        elements: layout.elements,
+      };
+      persistDraft();
+      return layout;
+    };
+
+    document.addEventListener("click", (event) => {
+      const eventTarget = event.target;
+      const anchor = eventTarget instanceof Element ? eventTarget.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!anchor || anchor === saveLink) return;
+      if (anchor.hasAttribute("data-site-editor-route")) {
+        collectLayout();
+        return;
+      }
+      event.preventDefault();
+    }, true);
+
+    sizeInput.addEventListener("input", () => {
+      if (!selected) return;
+      const value = Number(sizeInput.value);
+      entryFor(selected).fontSize = value;
+      selected.style.fontSize = `${value}px`;
+      sizeOutput.value = `${value}px`;
+      persistDraft();
+    });
+
+    panel.querySelectorAll<HTMLButtonElement>("[data-nudge-x], [data-nudge-y]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!selected) return;
+        const saved = entryFor(selected);
+        saved.x = Number(saved.x || 0) + Number(button.dataset.nudgeX || 0);
+        saved.y = Number(saved.y || 0) + Number(button.dataset.nudgeY || 0);
+        selected.style.setProperty("--site-x", `${saved.x}px`);
+        selected.style.setProperty("--site-y", `${saved.y}px`);
+        persistDraft();
+      });
+    });
+
+    resetButton.addEventListener("click", () => {
+      if (!selected) return;
+      const saved = entryFor(selected);
+      saved.x = 0;
+      saved.y = 0;
+      delete saved.fontSize;
+      selected.style.setProperty("--site-x", "0px");
+      selected.style.setProperty("--site-y", "0px");
+      selected.style.removeProperty("font-size");
+      const size = Math.round(Number.parseFloat(getComputedStyle(selected).fontSize));
+      sizeInput.value = String(size);
+      sizeOutput.value = `${size}px`;
+      persistDraft();
+    });
+
+    exitButton.addEventListener("click", () => location.assign("/admin/write/"));
+
+    const save = async () => {
+      if (saving) return;
+      if (missing.length) {
+        status.textContent = `保存功能尚未配置：${missing.join("、")}`;
+        return;
+      }
+      if (!privateKey) {
+        pendingSave = true;
+        status.textContent = "请选择 GitHub App 的 .pem 私钥，选择后会自动保存全站设置。";
+        pemInput.click();
+        return;
+      }
+
+      try {
+        saving = true;
+        saveLink.classList.add("is-saving");
+        saveLink.firstChild!.textContent = "保存中 ";
+        status.textContent = "正在创建全站页面设置提交…";
+        const result = await publishSiteLayout(config, privateKey, collectLayout());
+        status.textContent = `保存成功。Vercel 正在重新部署 ${result.path}`;
+        saveLink.firstChild!.textContent = "已保存 ";
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : "保存失败，请稍后重试";
+        saveLink.firstChild!.textContent = "重试保存 ";
+      } finally {
+        saving = false;
+        saveLink.classList.remove("is-saving");
+      }
+    };
+
+    saveLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      void save();
+    });
+
+    pemInput.addEventListener("change", async () => {
+      const file = pemInput.files?.[0];
+      if (!file) return;
+      privateKey = await file.text();
+      if (!privateKey.includes("PRIVATE KEY")) {
+        privateKey = "";
+        status.textContent = "无法识别这份私钥，请选择 GitHub App 生成的 .pem 文件。";
+        return;
+      }
+      status.textContent = `${file.name} 已载入。`;
+      if (pendingSave) {
+        pendingSave = false;
+        void save();
+      }
+    });
+  }
+</script>

@@ -1,0 +1,27 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="项目" headerMode="solid">
+  <section class="page-intro">
+    <p class="eyebrow" data-site-edit="projects-page-eyebrow">Selected projects / Ongoing</p>
+    <h1 data-site-edit="projects-page-title">Projects</h1>
+    <div class="page-intro__bottom">
+      <strong data-site-edit="projects-page-count">02 Projects</strong>
+      <span data-site-edit="projects-page-description">围绕写作、发布和数字体验持续进行的个人项目。它们并非终点，而是仍在更新的工作现场。</span>
+    </div>
+  </section>
+
+  <section class="manifesto" aria-label="项目列表">
+    <div class="manifesto-row">
+      <span data-site-edit="project-better-blog-index">01</span>
+      <h2 data-site-edit="project-better-blog-title">Better Blog</h2>
+      <p data-site-edit="project-better-blog-description">将浏览器写作流程连接到 GitHub 与 Vercel，让发布文章不再依赖本地提交操作。</p>
+    </div>
+    <div class="manifesto-row">
+      <span data-site-edit="project-blogx-index">02</span>
+      <h2 data-site-edit="project-blogx-title">bloGX</h2>
+      <p data-site-edit="project-blogx-description">以航天视觉语言重新设计的个人博客，并持续实验页面切换、光标、粒子与滚动交互。</p>
+    </div>
+  </section>
+</BaseLayout>

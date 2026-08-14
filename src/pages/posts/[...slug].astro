@@ -1,0 +1,66 @@
+---
+import { getCollection, render, type CollectionEntry } from "astro:content";
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import { formatPostDate, getPublishedPosts, postSlug, postUrl } from "../../lib/posts";
+
+export async function getStaticPaths() {
+  const posts = await getCollection("posts", ({ data }) => !data.draft);
+  return posts.map((post) => ({
+    params: { slug: postSlug(post.id) },
+    props: { post },
+  }));
+}
+
+interface Props {
+  post: CollectionEntry<"posts">;
+}
+
+const { post } = Astro.props;
+const { Content, headings } = await render(post);
+const posts = await getPublishedPosts();
+const currentIndex = posts.findIndex((item) => item.id === post.id);
+const nextPost = posts[(currentIndex + 1) % posts.length];
+const wordCount = (post.body ?? "").trim().split(/\s+/).filter(Boolean).length;
+const readMinutes = Math.max(1, Math.ceil(wordCount / 260));
+const editPrefix = `article-${postSlug(post.id)}`;
+---
+
+<BaseLayout title={post.data.title} description={post.data.summary} image={post.data.cover}>
+  <article>
+    <header class="article-hero" style={`--cover: url("${post.data.cover}")`}>
+      <div class="article-hero__inner">
+        <p class="eyebrow" data-site-edit={`${editPrefix}-eyebrow`}>{post.data.category} / {formatPostDate(post.data.published)}</p>
+        <h1 data-site-edit={`${editPrefix}-title`}>{post.data.title}</h1>
+        <p class="article-hero__summary" data-site-edit={`${editPrefix}-summary`}>{post.data.summary}</p>
+      </div>
+    </header>
+
+    <div class="article-shell">
+      <aside class="article-meta">
+        <dl>
+          <div><dt data-site-edit={`${editPrefix}-published-label`}>Published</dt><dd data-site-edit={`${editPrefix}-published-value`}>{formatPostDate(post.data.published)}</dd></div>
+          <div><dt data-site-edit={`${editPrefix}-reading-label`}>Reading time</dt><dd data-site-edit={`${editPrefix}-reading-value`}>{readMinutes} MIN</dd></div>
+          <div><dt data-site-edit={`${editPrefix}-sections-label`}>Sections</dt><dd data-site-edit={`${editPrefix}-sections-value`}>{String(headings.length).padStart(2, "0")}</dd></div>
+        </dl>
+        <div class="article-tags">
+          {post.data.tags.map((tag, index) => <span data-site-edit={`${editPrefix}-tag-${index}`}>{tag}</span>)}
+        </div>
+      </aside>
+      <div class="prose">
+        <Content />
+      </div>
+    </div>
+  </article>
+
+  {
+    nextPost && nextPost.id !== post.id && (
+      <a class="article-next" href={postUrl(nextPost)}>
+        <div>
+          <p data-site-edit={`${editPrefix}-next-label`}>Next transmission</p>
+          <h2 data-site-edit={`${editPrefix}-next-title`}>{nextPost.data.title}</h2>
+          <span data-site-edit={`${editPrefix}-next-arrow`}>→</span>
+        </div>
+      </a>
+    )
+  }
+</BaseLayout>

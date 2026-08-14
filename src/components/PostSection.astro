@@ -1,0 +1,45 @@
+---
+import type { Post } from "../lib/posts";
+import { formatPostDate, postSlug, postUrl } from "../lib/posts";
+
+interface Props {
+  post: Post;
+  index: number;
+  align?: "left" | "right";
+}
+const { post, index, align = "left" } = Astro.props;
+const editPrefix = `post-${postSlug(post.id)}`;
+---
+
+<article
+  class:list={["post-section", align === "right" && "post-section--right"]}
+  style={`--cover: url("${post.data.cover}")`}
+>
+  <div class="post-section__shade"></div>
+  <div class="post-section__content reveal-on-scroll">
+    <p class="eyebrow" data-site-edit={`${editPrefix}-eyebrow`}>
+      {String(index).padStart(2, "0")} / {post.data.category}
+    </p>
+    <h2 data-site-edit={`${editPrefix}-title`}>{post.data.title}</h2>
+    <p class="post-section__summary" data-site-edit={`${editPrefix}-summary`}>{post.data.summary}</p>
+    <div class="post-section__meta">
+      <span data-site-edit={`${editPrefix}-date`}>{formatPostDate(post.data.published)}</span>
+      <a
+        class="outline-button"
+        href={postUrl(post)}
+        data-site-edit={`${editPrefix}-action`}
+        data-site-draggable
+      >
+        <span data-site-edit-text>继续阅读</span> <span>→</span>
+      </a>
+    </div>
+  </div>
+</article>
+
+<script>
+  const revealObserver = new IntersectionObserver(
+    (entries) => entries.forEach((entry) => entry.target.classList.toggle("is-visible", entry.isIntersecting)),
+    { threshold: 0.18 },
+  );
+  document.querySelectorAll(".reveal-on-scroll").forEach((node) => revealObserver.observe(node));
+</script>

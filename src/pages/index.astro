@@ -1,0 +1,64 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import PostSection from "../components/PostSection.astro";
+import { formatPostDate, getPublishedPosts, postUrl } from "../lib/posts";
+
+const posts = await getPublishedPosts();
+const featured = posts.find((post) => post.data.featured) ?? posts[0];
+const rest = posts.filter((post) => post.id !== featured?.id).slice(0, 3);
+---
+
+<BaseLayout>
+  <section
+    class="hero"
+    style={`--hero-image: url("${featured?.data.cover ?? "/images/hero-flight.jpg"}")`}
+  >
+    <div class="hero__content">
+      <p class="eyebrow" data-site-edit="hero-eyebrow">Personal flight log / Est. 2026</p>
+      <h1 data-site-edit="hero-title">{featured?.data.title ?? "等待第一束信号"}</h1>
+      <p class="hero__summary" data-site-edit="hero-summary">
+        {featured?.data.summary ?? "这里记录技术、远方，以及每一次尚未完成的出发。"}
+      </p>
+      <div class="hero__actions">
+        {
+          featured ? (
+            <a class="outline-button" href={postUrl(featured)} data-site-edit="hero-primary-action" data-site-draggable>
+              <span data-site-edit-text>阅读日志</span> <span>→</span>
+            </a>
+          ) : (
+            <a class="outline-button" href="/admin/write/" data-site-edit="hero-primary-action" data-site-draggable>
+              <span data-site-edit-text>写下第一篇</span> <span>→</span>
+            </a>
+          )
+        }
+        {featured && <span class="hero__date" data-site-edit="hero-date">{formatPostDate(featured.data.published)}</span>}
+      </div>
+    </div>
+    <div class="scroll-cue" data-site-edit="hero-scroll-cue">Scroll to explore</div>
+  </section>
+
+  <section class="home-statement">
+    <h2 data-site-edit="statement-title">思想没有终点，只有下一段轨道。</h2>
+    <div class="home-statement__side">
+      <span class="eyebrow" data-site-edit="statement-eyebrow">Mission statement</span>
+      <p data-site-edit="statement-body">
+        ORBITAL / LOG 是一份个人观察日志。写技术，也写那些无法被参数完整描述的瞬间。
+      </p>
+      <a class="text-link" href="/about/" data-site-edit="statement-link" data-site-draggable><span data-site-edit-text>了解这份日志</span> <span>↗</span></a>
+    </div>
+  </section>
+
+  {
+    rest.map((post, index) => (
+      <PostSection post={post} index={index + 2} align={index % 2 ? "right" : "left"} />
+    ))
+  }
+
+  <section class="transmission-strip">
+    <div>
+      <p data-site-edit="archive-strip-count">{String(posts.length).padStart(2, "0")} TRANSMISSIONS RECEIVED</p>
+      <h2 data-site-edit="archive-strip-title"><span data-site-edit-text>浏览全部<br />日志</span></h2>
+    </div>
+    <a class="outline-button" href="/archive/" data-site-edit="archive-strip-action" data-site-draggable><span data-site-edit-text>进入归档</span> <span>→</span></a>
+  </section>
+</BaseLayout>

@@ -1,0 +1,36 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { formatPostDate, getPublishedPosts, postSlug, postUrl } from "../lib/posts";
+
+const posts = await getPublishedPosts();
+const years = [...new Set(posts.map((post) => post.data.published.getFullYear()))];
+---
+
+<BaseLayout title="全部日志" headerMode="solid">
+  <section class="page-intro">
+    <p class="eyebrow" data-site-edit="archive-page-eyebrow">Archive / {years.join(" — ") || "No signal"}</p>
+    <h1 data-site-edit="archive-page-title">All<br />transmissions</h1>
+    <div class="page-intro__bottom">
+      <strong data-site-edit="archive-page-count">{String(posts.length).padStart(2, "0")} Entries</strong>
+      <span data-site-edit="archive-page-description">按时间接收所有已经发出的信号。每篇文章都是一次坐标记录，也是下一次思考的起点。</span>
+    </div>
+  </section>
+
+  {
+    posts.length ? (
+      <section class="archive-list" aria-label="文章列表">
+        {posts.map((post, index) => (
+          <a class="archive-row" href={postUrl(post)}>
+            <span class="archive-row__index" data-site-edit={`archive-${postSlug(post.id)}-index`}>{String(index + 1).padStart(2, "0")}</span>
+            <span class="archive-row__date" data-site-edit={`archive-${postSlug(post.id)}-date`}>{formatPostDate(post.data.published)}</span>
+            <span class="archive-row__category" data-site-edit={`archive-${postSlug(post.id)}-category`}>{post.data.category}</span>
+            <h2 data-site-edit={`archive-${postSlug(post.id)}-title`}>{post.data.title}</h2>
+            <span class="archive-row__arrow" data-site-edit={`archive-${postSlug(post.id)}-arrow`}>→</span>
+          </a>
+        ))}
+      </section>
+    ) : (
+      <p class="empty-state" data-site-edit="archive-empty-state">暂时没有公开日志。第一束信号仍在路上。</p>
+    )
+  }
+</BaseLayout>

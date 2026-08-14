@@ -1,0 +1,46 @@
+---
+interface Props {
+  mode?: "overlay" | "solid";
+}
+const { mode = "overlay" } = Astro.props;
+---
+
+<header class:list={["site-header", mode === "solid" && "site-header--solid"]}>
+  <a class="wordmark" href="/" aria-label="Spacexdavid 首页" data-curtain-title="首页" data-site-edit="header-logo">
+    <span data-site-edit-text>Spacexdavid</span>
+  </a>
+  <nav class="desktop-nav" aria-label="主导航">
+    <a href="/archive/" data-site-edit="header-articles"><span data-site-edit-text>文章</span></a>
+    <a href="/projects/" data-site-edit="header-projects"><span data-site-edit-text>项目</span></a>
+    <a href="/about/" data-site-edit="header-about"><span data-site-edit-text>关于</span></a>
+    <a href="/contact/" data-site-edit="header-contact"><span data-site-edit-text>联系</span></a>
+  </nav>
+  <div class="header-actions">
+    <a class="write-link" href="/admin/write/" data-curtain-title="写文章">写文章 <span>↗</span></a>
+    <button class="menu-toggle" type="button" aria-label="打开菜单" aria-expanded="false">
+      <span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<div class="mobile-menu" aria-hidden="true">
+  <nav>
+    <a href="/archive/" data-site-bind="header-articles"><span>01</span><span data-site-edit-text>文章</span></a>
+    <a href="/projects/" data-site-bind="header-projects"><span>02</span><span data-site-edit-text>项目</span></a>
+    <a href="/about/" data-site-bind="header-about"><span>03</span><span data-site-edit-text>关于</span></a>
+    <a href="/contact/" data-site-bind="header-contact"><span>04</span><span data-site-edit-text>联系</span></a>
+    <a href="/admin/write/" data-curtain-title="写文章"><span>05</span>写文章</a>
+  </nav>
+</div>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>(".menu-toggle");
+  const menu = document.querySelector<HTMLElement>(".mobile-menu");
+  button?.addEventListener("click", () => {
+    const open = button.getAttribute("aria-expanded") !== "true";
+    button.setAttribute("aria-expanded", String(open));
+    button.setAttribute("aria-label", open ? "关闭菜单" : "打开菜单");
+    menu?.setAttribute("aria-hidden", String(!open));
+    document.documentElement.classList.toggle("menu-open", open);
+  });
+</script>

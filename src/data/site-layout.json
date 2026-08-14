@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-08-14T12:52:07.485Z",
+  "updatedAt": "2026-08-14T14:10:52.066Z",
   "elements": {
     "statement-body": {
       "text": "Spacexdavid是一份生活与科技的“搭车客指南”"
@@ -57,10 +57,12 @@
       "text": "01 TRANSMISSIONS RECEIVED"
     },
     "archive-strip-title": {
-      "text": "浏览全部\n日志"
+      "text": "浏览全部"
     },
     "archive-strip-action": {
-      "text": "进入归档"
+      "text": "全部文章",
+      "x": 0,
+      "y": 0
     },
     "footer-message": {
       "text": "Made on Earth by humans"
@@ -166,7 +168,7 @@
       "text": "ONE OPEN CHANNEL"
     },
     "contact-page-description": {
-      "text": "如果你想交流项目、文章或新的想法，目前可以通过 GitHub 找到我。"
+      "text": "如果你想交流项目、文章或新的想法，目前可以通过 Email 找到我。"
     },
     "contact-github-index": {
       "text": "01"
@@ -198,6 +200,12 @@
       "label": "GitHub",
       "value": "@SPACEXDAVI",
       "url": "https://github.com/spacexdavi"
+    },
+    {
+      "id": "contact-mst0w44t-o71g",
+      "label": "Email",
+      "value": "e@spacexdavid.cn",
+      "url": ""
     }
   ]
 }

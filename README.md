@@ -1,5 +1,4 @@
-# ORBITAL / LOG
-
+# SpaceX Style Blog
 一个从 `bloGX` 中的 SpaceX 风格页面提炼视觉语言、并结合浏览器直发文章能力完成的 Astro 静态博客。
 
 ## 已包含的页面
